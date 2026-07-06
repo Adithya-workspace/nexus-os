@@ -71,7 +71,7 @@ export function AgentCard({ name, role, status, report, onRun }: AgentCardProps)
               </div>
             </motion.div>
           ) : (
-            <p className="text-sm text-muted-foreground">Not run yet. Click "Run Agent" to analyze current business state.</p>
+            <p className="text-sm text-muted-foreground">Not run yet. Click &quot;Run Agent&quot; to analyze current business state.</p>
           )}
         </AnimatePresence>
         <Button size="sm" variant="secondary" className="mt-4 w-full" onClick={onRun} disabled={status === "running" || status === "thinking"}>

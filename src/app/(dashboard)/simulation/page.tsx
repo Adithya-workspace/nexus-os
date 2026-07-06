@@ -168,10 +168,10 @@ export default function SimulationPage() {
               <div className="text-sm text-muted-foreground space-y-2">
                 <p>Try commands like:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>"Increase price by 10%"</li>
-                  <li>"Hire 5 employees"</li>
-                  <li>"Cut marketing budget 15%"</li>
-                  <li>"Improve delivery speed"</li>
+                <li>&quot;Increase price by 10%&quot;</li>
+                <li>&quot;Hire 5 employees&quot;</li>
+                <li>&quot;Cut marketing budget 15%&quot;</li>
+                <li>&quot;Improve delivery speed &quot;</li>
                 </ul>
               </div>
             )}

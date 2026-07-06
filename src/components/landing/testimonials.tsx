@@ -26,7 +26,7 @@ export function Testimonials() {
                     <Star key={idx} className="h-4 w-4 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
-                <p className="text-sm text-foreground/90 mb-4">"{t.quote}"</p>
+                <p className="text-sm text-foreground/90 mb-4">&quot;{t.quote}&quot;</p>
                 <p className="text-sm font-medium text-foreground">{t.name}</p>
                 <p className="text-xs text-muted-foreground">{t.role}</p>
               </Card>

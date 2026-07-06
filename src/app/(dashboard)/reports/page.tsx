@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Download, Trash2 } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/utils";
-import { ScenarioBarChart } from "@/components/charts/scenario-bar-chart";
+import { ScenarioBarChart, ScenarioBarDatum } from "@/components/charts/scenario-bar-chart";
 import { AgentReport } from "@/lib/agents/base-agent";
 
 const SCENARIO_COLORS = ["#a78bfa", "#22d3ee", "#34d399", "#fbbf24", "#f87171"];
@@ -43,7 +43,7 @@ export default function ReportsPage() {
   }, [current.timestamp]);
 
   const comparisonData = ["revenue", "netProfit", "riskScore"].map((metricKey) => {
-    const row: Record<string, string | number> = { metric: metricKey === "revenue" ? "Revenue ($k)" : metricKey === "netProfit" ? "Profit ($k)" : "Risk /100" };
+    const row: ScenarioBarDatum = { metric: metricKey === "revenue" ? "Revenue ($k)" : metricKey === "netProfit" ? "Profit ($k)" : "Risk /100" };
     row["Current"] = metricKey === "riskScore" ? Math.round(current.outputs.riskScore) : Math.round(current.outputs[metricKey as "revenue" | "netProfit"] / 1000);
     scenarios.forEach((s) => {
       row[s.name] = metricKey === "riskScore" ? Math.round(s.result.outputs.riskScore) : Math.round(s.result.outputs[metricKey as "revenue" | "netProfit"] / 1000);

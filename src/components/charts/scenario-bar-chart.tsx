@@ -2,10 +2,11 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-interface ScenarioBarDatum {
+export interface ScenarioBarDatum {
   metric: string;
   [scenarioName: string]: string | number;
 }
+
 
 export function ScenarioBarChart({ data, scenarioNames, colors }: { data: ScenarioBarDatum[]; scenarioNames: string[]; colors: string[] }) {
   return (

@@ -48,7 +48,7 @@ export default function CustomersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Retention Breakdown</CardTitle>
-          <CardDescription>What's driving satisfaction and churn right now.</CardDescription>
+          <CardDescription>What&apos;s driving satisfaction and churn right now.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
