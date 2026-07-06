@@ -1,0 +1,88 @@
+// Nexus OS — Prisma schema
+// Uses Postgres (not SQLite) because most hosting platforms (Vercel, etc.)
+// wipe the local filesystem between deployments — a SQLite file would lose
+// all data on every deploy. Point DATABASE_URL at a hosted Postgres instance
+// (e.g. Neon, Supabase, Vercel Postgres) for both local dev and production —
+// using the same database in both places avoids schema drift between them.
+//
+// After changing this file, run: npx prisma generate && npx prisma db push
+//
+// The User/Account/Session/VerificationToken shape below is required verbatim by
+// @auth/prisma-adapter (NextAuth's database adapter) — this is what actually persists
+// a User row the first time someone signs in with Google. Guest/Demo logins (Credentials
+// provider) intentionally do NOT create DB rows — they're meant to be a zero-commitment
+// try-it-out path, not real accounts.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String?    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime   @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  scenarios     Scenario[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Scenario {
+  id        String   @id @default(cuid())
+  name      String
+  inputs    String
+  outputs   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model AgentRun {
+  id        String   @id @default(cuid())
+  agentId   String
+  summary   String
+  findings  String
+  confidence Int
+  createdAt DateTime @default(now())
+}
