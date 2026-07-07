@@ -48,11 +48,11 @@ export default function SettingsPage() {
           <CardDescription>Get notified when risk thresholds are crossed.</CardDescription>
         </CardHeader>
         <CardContent>
-          <button
+        <button
             onClick={() => setNotifications((n) => !n)}
-            className={`relative h-6 w-11 rounded-full transition-colors ${notifications ? "bg-violet-500" : "bg-white/10"}`}
+            className={`relative h-6 w-11 shrink-0 rounded-full border-0 p-0 transition-colors ${notifications ? "bg-violet-500" : "bg-white/10"}`}
           >
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${notifications ? "translate-x-5" : "translate-x-0.5"}`} />
+            <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${notifications ? "translate-x-5" : "translate-x-0"}`} />
           </button>
           <span className="ml-3 text-sm text-muted-foreground align-middle">{notifications ? "Enabled" : "Disabled"}</span>
         </CardContent>
