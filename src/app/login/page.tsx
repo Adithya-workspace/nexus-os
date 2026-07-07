@@ -44,7 +44,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-[11px] text-muted-foreground text-center mt-6">
-            Google login requires OAuth credentials configured in <code>.env.local</code>. Demo and Guest modes work instantly.
+            Nexus OS is a platform for creating and managing your business digital twin.
           </p>
         </Card>
       </motion.div>
