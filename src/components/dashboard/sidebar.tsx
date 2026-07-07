@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, SlidersHorizontal, Building2, Bot, LineChart, Users,
   Package, Wallet, Cog, FileText, Settings, Sparkles,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOut } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -60,11 +62,18 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 space-y-2">
         <div className="rounded-xl bg-white/[0.03] border border-white/10 p-3">
           <p className="text-xs font-medium text-foreground">Demo Workspace</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">Acme Retail Co.</p>
         </div>
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-red-400 transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
       </div>
     </aside>
   );
