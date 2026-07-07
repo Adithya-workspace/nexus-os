@@ -5,8 +5,10 @@ import { Bell, Search, Activity } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useBusinessStore } from "@/lib/store/business-store";
+import { useRouter } from "next/navigation";
 
 export function Navbar() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const businessHealthScore = useBusinessStore((s) => s.current.outputs.businessHealthScore);
 
@@ -20,6 +22,12 @@ export function Navbar() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && query.trim()) {
+              router.push(`/simulation?q=${encodeURIComponent(query.trim())}`);
+              setQuery("");
+            }
+          }}
           placeholder="Ask Nexus anything… (e.g. 'why are sales down?')"
           className="pl-9 bg-white/[0.03]"
         />

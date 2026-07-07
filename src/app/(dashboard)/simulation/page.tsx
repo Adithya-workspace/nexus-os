@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Send, RotateCcw, Save, Sparkles } from "lucide-react";
 import { useBusinessStore } from "@/lib/store/business-store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,26 +26,40 @@ const LEVER_FIELDS: (keyof BusinessInputs)[] = [
   "supplierCostPerUnit",
 ];
 
+// useSearchParams() requires a Suspense boundary in the App Router — this
+// tiny wrapper is the officially recommended pattern for that.
 export default function SimulationPage() {
+  return (
+    <Suspense fallback={null}>
+      <SimulationPageInner />
+    </Suspense>
+  );
+}
+
+function SimulationPageInner() {
   const { inputs, current, previous, updateInput, updateInputs, resetToBaseline, saveScenario, chatHistory, addChatMessage } = useBusinessStore();
   const [command, setCommand] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [scenarioName, setScenarioName] = useState("");
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const hasAutoRun = useRef(false);
+
   const deltas: SimulationDelta[] = previous ? SimulationEngine.diff(previous, current) : [];
 
-  async function handleSend() {
-    if (!command.trim()) return;
-    const userMessage = command;
+  async function handleSend(overrideMessage?: string) {
+    const messageToSend = overrideMessage ?? command;
+    if (!messageToSend.trim()) return;
     setCommand("");
-    addChatMessage({ role: "user", content: userMessage });
+    addChatMessage({ role: "user", content: messageToSend });
     setIsProcessing(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, inputs }),
+        body: JSON.stringify({ message: messageToSend, inputs }),
       });
       const data = await res.json();
       if (data.success) {
@@ -67,6 +82,19 @@ export default function SimulationPage() {
       setIsProcessing(false);
     }
   }
+
+  // If we arrived here via the top navbar search (e.g. /simulation?q=...),
+  // auto-run that question once, then clean the URL so refreshing doesn't
+  // re-trigger it.
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q && !hasAutoRun.current) {
+      hasAutoRun.current = true;
+      handleSend(q);
+      router.replace("/simulation");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   return (
     <div className="space-y-6">
@@ -168,10 +196,10 @@ export default function SimulationPage() {
               <div className="text-sm text-muted-foreground space-y-2">
                 <p>Try commands like:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>&quot;Increase price by 10%&quot;</li>
-                <li>&quot;Hire 5 employees&quot;</li>
-                <li>&quot;Cut marketing budget 15%&quot;</li>
-                <li>&quot;Improve delivery speed &quot;</li>
+                  <li>&quot;Increase price by 10%&quot;</li>
+                  <li>&quot;Hire 5 employees&quot;</li>
+                  <li>&quot;Cut marketing budget 15%&quot;</li>
+                  <li>&quot;Improve delivery speed&quot;</li>
                 </ul>
               </div>
             )}
@@ -189,7 +217,7 @@ export default function SimulationPage() {
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="e.g. Increase price by 10%"
             />
-            <Button size="icon" onClick={handleSend} disabled={isProcessing}>
+            <Button size="icon" onClick={() => handleSend()} disabled={isProcessing}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
