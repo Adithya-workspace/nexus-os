@@ -26,8 +26,6 @@ const LEVER_FIELDS: (keyof BusinessInputs)[] = [
   "supplierCostPerUnit",
 ];
 
-// useSearchParams() requires a Suspense boundary in the App Router — this
-// tiny wrapper is the officially recommended pattern for that.
 export default function SimulationPage() {
   return (
     <Suspense fallback={null}>
@@ -62,7 +60,13 @@ function SimulationPageInner() {
         body: JSON.stringify({ message: messageToSend, inputs }),
       });
       const data = await res.json();
-      if (data.success) {
+
+      if (!data.success) {
+        addChatMessage({ role: "assistant", content: "I ran into an issue processing that command." });
+        return;
+      }
+
+      if (data.type === "action") {
         updateInputs(data.nextInputs);
         const impactLines = (data.deltas as SimulationDelta[])
           .filter((d) => Math.abs(d.changePercent) > 0.5)
@@ -73,8 +77,24 @@ function SimulationPageInner() {
           role: "assistant",
           content: `${data.explanation}\n\nProjected impact — ${impactLines || "minimal change detected."}`,
         });
+      } else if (data.type === "advice") {
+        const { advice } = data;
+        if (advice.recommendations.length === 0) {
+          addChatMessage({ role: "assistant", content: `${advice.summary} Current ${advice.metricLabel}: ${advice.currentValue}.` });
+        } else {
+          const lines = advice.recommendations
+            .map(
+              (r: { move: string; deltaDescription: string; tradeoff?: string }, i: number) =>
+                `${i + 1}. ${r.move} → ${r.deltaDescription}${r.tradeoff ? ` (tradeoff: ${r.tradeoff})` : ""}`
+            )
+            .join("\n");
+          addChatMessage({
+            role: "assistant",
+            content: `${advice.summary}\n\nCurrent ${advice.metricLabel}: ${advice.currentValue}\n\n${lines}\n\nWant me to apply one? Just type it as a command, e.g. "${advice.recommendations[0].move.toLowerCase()}".`,
+          });
+        }
       } else {
-        addChatMessage({ role: "assistant", content: "I ran into an issue processing that command." });
+        addChatMessage({ role: "assistant", content: data.explanation ?? "I couldn't confidently map that to an action or a known metric." });
       }
     } catch {
       addChatMessage({ role: "assistant", content: "Network error reaching the simulation engine." });
@@ -83,9 +103,6 @@ function SimulationPageInner() {
     }
   }
 
-  // If we arrived here via the top navbar search (e.g. /simulation?q=...),
-  // auto-run that question once, then clean the URL so refreshing doesn't
-  // re-trigger it.
   useEffect(() => {
     const q = searchParams.get("q");
     if (q && !hasAutoRun.current) {
@@ -111,7 +128,6 @@ function SimulationPageInner() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Levers */}
         <Card className="xl:col-span-1">
           <CardHeader>
             <CardTitle>Business Levers</CardTitle>
@@ -138,7 +154,6 @@ function SimulationPageInner() {
           </CardContent>
         </Card>
 
-        {/* Live impact */}
         <Card className="xl:col-span-1">
           <CardHeader>
             <CardTitle>Predicted Impact</CardTitle>
@@ -185,7 +200,6 @@ function SimulationPageInner() {
           </CardContent>
         </Card>
 
-        {/* AI Command Center */}
         <Card className="xl:col-span-1 flex flex-col h-[640px]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-violet-300" /> AI Command Center</CardTitle>
@@ -200,6 +214,11 @@ function SimulationPageInner() {
                   <li>&quot;Hire 5 employees&quot;</li>
                   <li>&quot;Cut marketing budget 15%&quot;</li>
                   <li>&quot;Improve delivery speed&quot;</li>
+                </ul>
+                <p className="pt-1">Or ask an open-ended question:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>&quot;How can I increase profit margin?&quot;</li>
+                  <li>&quot;How do I reduce churn?&quot;</li>
                 </ul>
               </div>
             )}
