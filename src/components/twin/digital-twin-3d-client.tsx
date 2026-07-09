@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import { DepartmentScore } from "@/lib/simulation/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -24,5 +25,25 @@ const DigitalTwin3DImpl = dynamic(
 );
 
 export function DigitalTwin3DClient({ departments, interactive = true }: { departments: DepartmentScore[]; interactive?: boolean }) {
-  return <DigitalTwin3DImpl departments={departments} interactive={interactive} />;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // The 3D canvas measures its container's exact size the instant it mounts,
+  // to set up its camera correctly. If fonts are still loading or an
+  // entrance animation is still settling at that exact moment, it can grab
+  // a slightly-wrong size — which is why scrolling (an unrelated browser
+  // event that happens to force a re-measure) used to "accidentally" fix
+  // it. Dispatching a resize event ourselves, once, shortly after mount,
+  // makes it self-correct immediately instead of waiting on that.
+  useEffect(() => {
+    const timers = [100, 400, 900].map((delay) =>
+      setTimeout(() => window.dispatchEvent(new Event("resize")), delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="h-full w-full">
+      <DigitalTwin3DImpl departments={departments} interactive={interactive} />
+    </div>
+  );
 }
