@@ -30,42 +30,59 @@ export async function parseSpreadsheetFile(file: File): Promise<ParsedRow[]> {
  * to the person for review rather than trusted blindly.
  */
 export async function parsePdfFile(file: File): Promise<ParsedRow> {
-  const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-
-  const buffer = await file.arrayBuffer();
-  const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
-
-  let fullText = "";
-  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
-    const page = await doc.getPage(pageNum);
-    const content = await page.getTextContent();
-    const pageText = content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
-    fullText += pageText + "\n";
-  }
-
-  const row: ParsedRow = {};
-  const lines = fullText
-    .split(/\n|\r/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  // Matches lines like "Marketing Budget: $18,000", "Employees - 24", "Discount   5%"
-  const labelValuePattern = /^([A-Za-z][A-Za-z\s%/]{2,45}?)[\s:–—-]+\$?\s*([\d,]+\.?\d*)\s*%?\s*$/;
-
-  for (const line of lines) {
-    const match = line.match(labelValuePattern);
-    if (match) {
-      const label = match[1].trim();
-      const value = match[2].trim();
-      if (label.length >= 3 && value.length > 0) {
-        row[label] = value;
+    const pdfjsLib = await import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+  
+    const buffer = await file.arrayBuffer();
+    const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+  
+    let fullText = "";
+    for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+      const page = await doc.getPage(pageNum);
+      const content = await page.getTextContent();
+  
+      // pdfjs returns one "item" per text run, not per visual line — joining
+      // them all with a single space would collapse an entire page into one
+      // giant line, breaking the "Label: Value" pattern matching below.
+      // Instead, group items into lines by watching for a jump in vertical
+      // position (the 6th value in each item's transform matrix).
+      let pageText = "";
+      let lastY: number | null = null;
+      for (const item of content.items as { str?: string; transform?: number[] }[]) {
+        const str = item.str ?? "";
+        const y = item.transform ? item.transform[5] : null;
+        if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+          pageText += "\n";
+        } else if (pageText.length > 0 && !pageText.endsWith("\n")) {
+          pageText += " ";
+        }
+        pageText += str;
+        lastY = y;
+      }
+      fullText += pageText + "\n";
+    }
+  
+    const row: ParsedRow = {};
+    const lines = fullText
+      .split(/\n|\r/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+  
+    const labelValuePattern = /^([A-Za-z][A-Za-z\s%/]{2,45}?)[\s:–—-]+\$?\s*([\d,]+\.?\d*)\s*%?\s*$/;
+  
+    for (const line of lines) {
+      const match = line.match(labelValuePattern);
+      if (match) {
+        const label = match[1].trim();
+        const value = match[2].trim();
+        if (label.length >= 3 && value.length > 0) {
+          row[label] = value;
+        }
       }
     }
+  
+    return row;
   }
-
-  return row;
-}
 
 export function getFileKind(file: File): "spreadsheet" | "pdf" | "unsupported" {
   const name = file.name.toLowerCase();
