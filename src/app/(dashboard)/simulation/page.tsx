@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Send, RotateCcw, Save, Sparkles } from "lucide-react";
+import { Send, RotateCcw, Save, Sparkles, Paperclip } from "lucide-react";
 import { useBusinessStore } from "@/lib/store/business-store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { BusinessInputs, SimulationDelta } from "@/lib/simulation/types";
 import { SimulationEngine } from "@/lib/simulation/engine";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { getFileKind, parsePdfFile, parseSpreadsheetFile } from "@/lib/import/file-parsers";
+import { mapRowToBusinessInputs } from "@/lib/import/business-data-mapper";
+import { getMetricSpec, generateGoalAdvice } from "@/lib/agents/goal-advisor";
 
 const LEVER_FIELDS: (keyof BusinessInputs)[] = [
   "price",
@@ -26,6 +29,8 @@ const LEVER_FIELDS: (keyof BusinessInputs)[] = [
   "supplierCostPerUnit",
 ];
 
+// useSearchParams() requires a Suspense boundary in the App Router — this
+// tiny wrapper is the officially recommended pattern for that.
 export default function SimulationPage() {
   return (
     <Suspense fallback={null}>
@@ -38,11 +43,13 @@ function SimulationPageInner() {
   const { inputs, current, previous, updateInput, updateInputs, resetToBaseline, saveScenario, chatHistory, addChatMessage } = useBusinessStore();
   const [command, setCommand] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [scenarioName, setScenarioName] = useState("");
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const hasAutoRun = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const deltas: SimulationDelta[] = previous ? SimulationEngine.diff(previous, current) : [];
 
@@ -103,6 +110,63 @@ function SimulationPageInner() {
     }
   }
 
+  async function handleFileUpload(file: File) {
+    setIsUploading(true);
+    addChatMessage({ role: "user", content: `📎 Uploaded: ${file.name}` });
+
+    try {
+      const kind = getFileKind(file);
+      let row: Record<string, string> = {};
+
+      if (kind === "spreadsheet") {
+        const rows = await parseSpreadsheetFile(file);
+        if (rows.length === 0) throw new Error("That file doesn't seem to have any rows I could read.");
+        row = rows[rows.length - 1];
+      } else if (kind === "pdf") {
+        row = await parsePdfFile(file);
+        if (Object.keys(row).length === 0) {
+          throw new Error(
+            'Couldn\'t find any labeled numbers in that PDF. PDF extraction works best on simple reports with lines like "Marketing Budget: $18,000" — try a CSV or Excel export instead if this keeps happening.'
+          );
+        }
+      } else {
+        throw new Error("Unsupported file type — please upload a .csv, .xlsx, .xls, or .pdf file.");
+      }
+
+      const { patch, matched, unmatchedFieldCount } = mapRowToBusinessInputs(row);
+
+      if (matched.length === 0) {
+        throw new Error('I couldn\'t match any recognizable business fields in that file. Try column headers like "Price", "Marketing Budget", "Employees", "Inventory", etc.');
+      }
+
+      updateInputs(patch);
+
+      const matchedLines = matched.map((m) => `• ${m.label}: ${m.value.toLocaleString()} (from "${m.sourceLabel}")`).join("\n");
+
+      const nextInputs = { ...inputs, ...patch };
+      const profitMetric = getMetricSpec("profitMargin");
+      let adviceText = "";
+      if (profitMetric) {
+        const advice = generateGoalAdvice(profitMetric, nextInputs);
+        if (advice.recommendations.length > 0) {
+          const adviceLines = advice.recommendations
+            .map((r, i) => `${i + 1}. ${r.move} → ${r.deltaDescription}${r.tradeoff ? ` (tradeoff: ${r.tradeoff})` : ""}`)
+            .join("\n");
+          adviceText = `\n\nProfit opportunities from this data (current margin ${advice.currentValue}):\n${adviceLines}`;
+        }
+      }
+
+      addChatMessage({
+        role: "assistant",
+        content: `Detected ${matched.length} of ${matched.length + unmatchedFieldCount} business levers and applied them to your simulation:\n${matchedLines}${adviceText}`,
+      });
+    } catch (err) {
+      addChatMessage({ role: "assistant", content: (err as Error).message || "Something went wrong reading that file." });
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   useEffect(() => {
     const q = searchParams.get("q");
     if (q && !hasAutoRun.current) {
@@ -128,6 +192,7 @@ function SimulationPageInner() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Levers */}
         <Card className="xl:col-span-1">
           <CardHeader>
             <CardTitle>Business Levers</CardTitle>
@@ -154,6 +219,7 @@ function SimulationPageInner() {
           </CardContent>
         </Card>
 
+        {/* Live impact */}
         <Card className="xl:col-span-1">
           <CardHeader>
             <CardTitle>Predicted Impact</CardTitle>
@@ -200,10 +266,11 @@ function SimulationPageInner() {
           </CardContent>
         </Card>
 
+        {/* AI Command Center */}
         <Card className="xl:col-span-1 flex flex-col h-[640px]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-violet-300" /> AI Command Center</CardTitle>
-            <CardDescription>Type a decision in plain English.</CardDescription>
+            <CardDescription>Type a decision, ask a question, or upload a file.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto space-y-3">
             {chatHistory.length === 0 && (
@@ -220,6 +287,7 @@ function SimulationPageInner() {
                   <li>&quot;How can I increase profit margin?&quot;</li>
                   <li>&quot;How do I reduce churn?&quot;</li>
                 </ul>
+                <p className="pt-1">Or upload a spreadsheet or PDF report using the paperclip button below to auto-fill your levers.</p>
               </div>
             )}
             {chatHistory.map((msg) => (
@@ -228,8 +296,29 @@ function SimulationPageInner() {
               </div>
             ))}
             {isProcessing && <div className="text-xs text-muted-foreground animate-pulse">Nexus is thinking…</div>}
+            {isUploading && <div className="text-xs text-muted-foreground animate-pulse">Reading your file…</div>}
           </CardContent>
           <div className="p-4 pt-0 flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing || isUploading}
+              title="Upload a spreadsheet or PDF"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
             <Input
               value={command}
               onChange={(e) => setCommand(e.target.value)}

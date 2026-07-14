@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, SlidersHorizontal, Building2, Bot, LineChart, Users,
   Package, Wallet, Cog, FileText, Settings, Sparkles,
-  LogOut,
+  LogOut, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
 
 const NAV_ITEMS = [
+  { href: "/import", label: "Import Data", icon: Upload },
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/simulation", label: "Simulation", icon: SlidersHorizontal },
   { href: "/departments", label: "Departments", icon: Building2 },

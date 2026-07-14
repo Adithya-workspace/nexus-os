@@ -1,7 +1,7 @@
 import { BusinessInputs, BusinessOutputs } from "@/lib/simulation/types";
 import { SimulationEngine } from "@/lib/simulation/engine";
 
-interface MetricSpec {
+export interface MetricSpec {
   key: keyof BusinessOutputs;
   label: string;
   higherIsBetter: boolean;
@@ -9,7 +9,7 @@ interface MetricSpec {
   keywords: string[];
 }
 
-const METRICS: MetricSpec[] = [
+export const METRICS: MetricSpec[] = [
   { key: "profitMargin", label: "profit margin", higherIsBetter: true, format: (v) => `${v.toFixed(1)}%`, keywords: ["profit margin", "margin"] },
   { key: "netProfit", label: "profit", higherIsBetter: true, format: (v) => `$${Math.round(v).toLocaleString()}/mo`, keywords: ["profit", "profitability", "earn more", "make more money"] },
   { key: "revenue", label: "revenue", higherIsBetter: true, format: (v) => `$${Math.round(v).toLocaleString()}/mo`, keywords: ["revenue", "sales"] },
@@ -41,6 +41,10 @@ export interface GoalAdvice {
     tradeoff?: string;
   }[];
   summary: string;
+}
+
+export function getMetricSpec(key: string): MetricSpec | undefined {
+  return METRICS.find((m) => m.key === key);
 }
 
 export function detectGoalMetric(text: string): MetricSpec | null {
